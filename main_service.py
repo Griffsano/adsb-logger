@@ -14,7 +14,7 @@ sh = logging.StreamHandler()
 sh.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
 log.addHandler(sh)
 
-path_database = "/var/adsb-logger/aircraft.db"
+path_database = "/var/adsb-logger/adsb-logger.db"
 path_json = "http://localhost/tar1090/data/aircraft.json"
 
 terminate = False

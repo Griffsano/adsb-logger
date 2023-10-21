@@ -5,7 +5,7 @@ After = network.target
 
 [Service]
 SyslogIdentifier = adsb-logger
-ExecStart = python3 -u /var/adsb-logger/main.py
+ExecStart = python3 -u /var/adsb-logger/main_service.py
 Environment = PYTHONUNBUFFERED=1
 Type = notify
 Restart = on-failure
