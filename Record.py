@@ -14,12 +14,11 @@ class Record:
     aircraft: Optional[Aircraft] = None
     record_key: str = ""
     is_max: Optional[bool] = None
-    timestamp: Optional[int] = None
+    timestamp: int = 0
 
     def __init__(self) -> None:
         self.aircraft = Aircraft()
         self.aircraft.time_start = 0
-        self.timestamp = 0
 
     def compare_aircraft(self, ac: Aircraft) -> bool:
         if self.aircraft is None:  # mypy fix
