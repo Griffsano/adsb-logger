@@ -2,7 +2,7 @@
 import dataclasses
 import logging
 import numbers
-from typing import List, Optional
+from typing import Optional
 
 from States import States
 
@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 @dataclasses.dataclass
 class Aircraft:
     unique_var = ["hex", "flight", "registration", "ac_type"]
-    overwrite_var: List[str] = []
+    overwrite_var = []  # type: ignore
 
     hex: Optional[str] = None
     flight: Optional[str] = None

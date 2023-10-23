@@ -5,7 +5,7 @@ import os
 import sqlite3
 from contextlib import closing
 from datetime import datetime
-from pathlib import Path
+from typing import Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
@@ -24,7 +24,7 @@ class ADSBLogger:
 
     # Paths
     path_database: os.PathLike = None  # type: ignore
-    path_json: Path = None  # type: ignore
+    path_json: Optional[str] = None  # type: ignore
 
     # Timestamps
     time_json: int = 0
@@ -46,7 +46,7 @@ class ADSBLogger:
         log.info("Starting ADS-B Logger")
 
         # Set up JSON path
-        self.path_json = Path(path_json)
+        self.path_json = path_json
         log.debug(f"JSON path: {self.path_json}")
         self.fetch_adsb_info()
 
@@ -284,7 +284,7 @@ class ADSBLogger:
         # Fetch newest JSON with ADS-B data
         try:
             with closing(
-                urlopen(str(self.path_json), None, 3.0)
+                urlopen(self.path_json, None, 3.0)  # type: ignore
             ) as aircraft_file:
                 aircraft_data = json.load(aircraft_file)
         except (HTTPError, URLError) as e:
