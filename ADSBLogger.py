@@ -98,9 +98,7 @@ class ADSBLogger:
     def fetch_adsb_info(self) -> bool:
         # Fetch newest JSON with ADS-B data
         try:
-            with closing(
-                urlopen(self.path_json, None, 3.0)  # type: ignore
-            ) as aircraft_file:
+            with closing(urlopen(self.path_json, None, 3.0)) as aircraft_file:  # type: ignore
                 aircraft_data = json.load(aircraft_file)
         except (HTTPError, URLError) as e:
             log.error(e)

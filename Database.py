@@ -161,9 +161,7 @@ class Database:
         log.info(f"Read {db_counter} record flights from database")
         return rec_list
 
-    def write_records(
-        self, records: List[Record], commit_db: bool = True
-    ) -> bool:
+    def write_records(self, records: List[Record], commit_db: bool = True) -> bool:
         db_counter = 0
         for r in records:
             try:
