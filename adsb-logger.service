@@ -1,0 +1,17 @@
+[Unit]
+Description = ADS-B Logger
+Wants = network.target
+After = network.target
+
+[Service]
+SyslogIdentifier = adsb-logger
+ExecStart = python3 -u /var/adsb-logger/main_service.py
+Environment = PYTHONUNBUFFERED=1
+Type = notify
+Restart = on-failure
+RestartSec = 10
+User = adsb_logger
+Group = adsb_logger
+
+[Install]
+WantedBy = default.target
