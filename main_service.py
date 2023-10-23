@@ -1,7 +1,7 @@
 #!/usr/bin/python3
+import logging
 import signal
 import time
-import logging
 
 import sdnotify
 

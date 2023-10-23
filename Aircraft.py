@@ -38,8 +38,8 @@ class Aircraft:
 
     def is_identical(self, data) -> bool:
         """Returns true if the unique identifiers are identical"""
-        assert type(self) == type(
-            data
+        assert isinstance(
+            self, type(data)
         ), f"Cannot compare {type(self)} with {type(self)}"
 
         # Compare unique identifiers
@@ -58,8 +58,8 @@ class Aircraft:
             return True
 
     def merge(self, data):
-        assert type(self) == type(
-            data
+        assert isinstance(
+            self, type(data)
         ), f"Cannot compare {type(self)} with {type(self)}"
 
         # Merge variables two-way

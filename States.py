@@ -28,8 +28,8 @@ class States:
         ]
 
     def import_data(self, data):
-        assert type(self) == type(
-            data
+        assert isinstance(
+            self, type(data)
         ), f"Cannot compare {type(self)} with {type(self)}"
 
         # Overwrite remaining variables
