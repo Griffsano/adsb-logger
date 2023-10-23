@@ -1,24 +1,25 @@
 #!/usr/bin/python3
 import dataclasses
 import logging
+from typing import Optional
 
 log = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
 class States:
-    alt_baro: float = None
-    alt_geom: float = None
-    gs: float = None
-    ias: float = None
-    mach: float = None
-    roll: float = None
-    baro_rate: float = None
-    geom_rate: float = None
-    rssi: float = None
-    ws: float = None
-    oat: float = None
-    r_dst: float = None
+    alt_baro: Optional[float] = None
+    alt_geom: Optional[float] = None
+    gs: Optional[float] = None
+    ias: Optional[float] = None
+    mach: Optional[float] = None
+    roll: Optional[float] = None
+    baro_rate: Optional[float] = None
+    geom_rate: Optional[float] = None
+    rssi: Optional[float] = None
+    ws: Optional[float] = None
+    oat: Optional[float] = None
+    r_dst: Optional[float] = None
 
     def __init__(self) -> None:
         self.key_list = [
@@ -28,8 +29,8 @@ class States:
         ]
 
     def import_data(self, data):
-        assert type(self) == type(
-            data
+        assert isinstance(
+            self, type(data)
         ), f"Cannot compare {type(self)} with {type(self)}"
 
         # Overwrite remaining variables

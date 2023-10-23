@@ -1,0 +1,39 @@
+name: Linting
+
+on:
+  - push
+  - pull_request
+
+jobs:
+
+  isort:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: isort/isort-action@v1
+
+  black:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: psf/black@stable
+
+  flake8:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+    - uses: py-actions/flake8@v2
+
+  mypy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+    - run: |
+        pip install mypy
+    - run: mypy .

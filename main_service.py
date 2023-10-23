@@ -1,9 +1,9 @@
 #!/usr/bin/python3
+import logging
 import signal
 import time
-import logging
 
-import sdnotify
+import sdnotify  # type: ignore
 
 from ADSBLogger import ADSBLogger
 
