@@ -1,7 +1,6 @@
 import json
 import logging
 from contextlib import closing
-from typing import Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
@@ -19,7 +18,7 @@ class ADSBLogger:
 
     # Paths
     database: Database = None  # type: ignore
-    path_json: Optional[str] = None  # type: ignore
+    path_json: str = ""
 
     # Timestamps
     time_json: int = 0
@@ -98,7 +97,7 @@ class ADSBLogger:
     def fetch_adsb_info(self) -> bool:
         # Fetch newest JSON with ADS-B data
         try:
-            with closing(urlopen(self.path_json, None, 3.0)) as aircraft_file:  # type: ignore
+            with closing(urlopen(self.path_json, None, 3.0)) as aircraft_file:
                 aircraft_data = json.load(aircraft_file)
         except (HTTPError, URLError) as e:
             log.error(e)
