@@ -63,7 +63,8 @@ class ADSBLogger:
     def loop(self) -> bool:
         if self.time_print_info < self.time_json - self.timeout_print_info:
             log.info(
-                f"{len(self.current)} currently seen flights, {len(self.tracked)} tracked recent flights"
+                f"{len(self.current)} currently seen flights, "
+                f"{len(self.tracked)} tracked recent flights"
             )
             self.time_print_info = self.time_json
 
@@ -165,8 +166,8 @@ class ADSBLogger:
         try:
             db_command = (
                 "REPLACE INTO aircraft ( "
-                "'id', 'time', 'date', 'hex', 'registration', 'type', 'flight' ) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?);"
+                "'id', 'time', 'date', 'hex', 'registration', 'type', 'flight'"
+                " ) VALUES (?, ?, ?, ?, ?, ?, ?);"
             )
             time_start_short_int = int(aircraft.time_start)
             id = f"{time_start_short_int}_{aircraft.hex}"
@@ -306,8 +307,9 @@ class ADSBLogger:
                     r.aircraft = c
                     m = "max" if r.is_max else "min"
                     log.info(
-                        f"Registration {r.aircraft.registration} set new record for {m} "
-                        f"{r.record_key}: {getattr(r.aircraft.states, r.record_key)}"
+                        f"Registration {r.aircraft.registration} "
+                        f"set new record for {m} {r.record_key}: "
+                        f"{getattr(r.aircraft.states, r.record_key)}"
                     )
                     self.print_flight_info(c, "Record")
 

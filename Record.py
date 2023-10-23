@@ -26,12 +26,12 @@ class Record:
         if not getattr(self.aircraft.states, self.record_key):
             return True
 
-        if self.is_max == True:
+        if self.is_max is True:
             if getattr(ac.states, self.record_key) > getattr(
                 self.aircraft.states, self.record_key
             ):
                 return True
-        elif self.is_max == False:
+        elif self.is_max is False:
             if getattr(ac.states, self.record_key) < getattr(
                 self.aircraft.states, self.record_key
             ):

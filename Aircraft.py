@@ -49,8 +49,8 @@ class Aircraft:
             identifiers = [self.unique_var]
         for identifier in identifiers:
             if not (
-                getattr(self, identifier) == None
-                or getattr(data, identifier) == None
+                getattr(self, identifier) is None
+                or getattr(data, identifier) is None
                 or getattr(self, identifier) == getattr(data, identifier)
             ):
                 return False
