@@ -3,7 +3,7 @@ import logging
 import signal
 import time
 
-import sdnotify
+import sdnotify  # type: ignore
 
 from ADSBLogger import ADSBLogger
 

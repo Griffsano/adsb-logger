@@ -2,6 +2,7 @@
 import dataclasses
 import logging
 import numbers
+from typing import List, Optional
 
 from States import States
 
@@ -11,17 +12,17 @@ log = logging.getLogger(__name__)
 @dataclasses.dataclass
 class Aircraft:
     unique_var = ["hex", "flight", "registration", "ac_type"]
-    overwrite_var = []
+    overwrite_var: List[str] = []
 
-    hex: str = None
-    flight: str = None
-    registration: str = None
-    ac_type: str = None
+    hex: Optional[str] = None
+    flight: Optional[str] = None
+    registration: Optional[str] = None
 
-    states: States = None
+    ac_type: Optional[str] = None
+    states: Optional[States] = None
 
-    time_start: int = None
-    time_end: int = None
+    time_start: Optional[int] = None
+    time_end: Optional[int] = None
 
     def __init__(self) -> None:
         self.states = States()
@@ -32,6 +33,8 @@ class Aircraft:
         self.registration = data.get("r")
         self.ac_type = data.get("t")
 
+        if self.states is None:  # mypy fix
+            self.states = States()
         for s in self.states.key_list:
             if isinstance(data.get(s), numbers.Number):
                 setattr(self.states, s, data.get(s))

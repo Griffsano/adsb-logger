@@ -2,18 +2,20 @@
 import dataclasses
 import logging
 import numbers
+from typing import Optional
 
 from Aircraft import Aircraft
+from States import States
 
 log = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
 class Record:
-    aircraft: Aircraft = None
+    aircraft: Optional[Aircraft] = None
     record_key: str = ""
-    is_max: str = None
-    timestamp: int = None
+    is_max: Optional[bool] = None
+    timestamp: Optional[int] = None
 
     def __init__(self) -> None:
         self.aircraft = Aircraft()
@@ -21,6 +23,9 @@ class Record:
         self.timestamp = 0
 
     def compare_aircraft(self, ac: Aircraft) -> bool:
+        if self.aircraft is None:  # mypy fix
+            self.aircraft = Aircraft()
+
         if not isinstance(getattr(ac.states, self.record_key), numbers.Number):
             return False
         if not getattr(self.aircraft.states, self.record_key):
@@ -36,10 +41,11 @@ class Record:
                 self.aircraft.states, self.record_key
             ):
                 return True
-        else:
-            return False
+        return False
 
     def assign_aircraft(self, ac: Aircraft):
         self.aircraft = Aircraft()
         self.aircraft.merge(ac)
+        if self.aircraft.states is None:  # mypy fix
+            self.aircraft.states = States()
         self.aircraft.states.import_data(ac.states)

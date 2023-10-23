@@ -6,10 +6,12 @@ import sqlite3
 from contextlib import closing
 from datetime import datetime
 from pathlib import Path
-from urllib.request import HTTPError, URLError, urlopen
+from urllib.error import HTTPError, URLError
+from urllib.request import urlopen
 
 from Aircraft import Aircraft
 from Record import Record
+from States import States
 
 log = logging.getLogger(__name__)
 
@@ -21,8 +23,8 @@ class ADSBLogger:
     timeout_db_write: float = 15 * 60
 
     # Paths
-    path_database: os.PathLike = None
-    path_json: Path = None
+    path_database: os.PathLike = None  # type: ignore
+    path_json: Path = None  # type: ignore
 
     # Timestamps
     time_json: int = 0
@@ -37,19 +39,19 @@ class ADSBLogger:
     records: list = []
 
     # Database
-    db_connection: sqlite3.Connection = None
-    db_cursor: sqlite3.Cursor = None
+    db_connection: sqlite3.Connection = None  # type: ignore
+    db_cursor: sqlite3.Cursor = None  # type: ignore
 
     def __init__(self, path_database: str, path_json: str) -> None:
         log.info("Starting ADS-B Logger")
 
         # Set up JSON path
-        self.path_json = path_json
+        self.path_json = Path(path_json)
         log.debug(f"JSON path: {self.path_json}")
         self.fetch_adsb_info()
 
         # Set up database
-        self.path_database = os.path.abspath(path_database)
+        self.path_database = os.path.abspath(path_database)  # type: ignore
         log.debug(f"Database: {self.path_database}")
 
         self.db_connection = sqlite3.connect(self.path_database)
@@ -60,7 +62,7 @@ class ADSBLogger:
         self.read_recent_flights()
         self.read_records()
 
-    def loop(self) -> bool:
+    def loop(self):
         if self.time_print_info < self.time_json - self.timeout_print_info:
             log.info(
                 f"{len(self.current)} currently seen flights, "
@@ -74,7 +76,7 @@ class ADSBLogger:
             self.time_db_write = self.time_json
 
         if self.fetch_adsb_info():
-            return True
+            return
 
         self.check_records()
         self.merge_flights()
@@ -169,7 +171,10 @@ class ADSBLogger:
                 "'id', 'time', 'date', 'hex', 'registration', 'type', 'flight'"
                 " ) VALUES (?, ?, ?, ?, ?, ?, ?);"
             )
-            time_start_short_int = int(aircraft.time_start)
+            if aircraft.time_start is None:  # mypy fix
+                time_start_short_int = 0
+            else:
+                time_start_short_int = int(aircraft.time_start)
             id = f"{time_start_short_int}_{aircraft.hex}"
             self.db_cursor.execute(
                 db_command,
@@ -200,9 +205,13 @@ class ADSBLogger:
     def read_records(self) -> None:
         db_counter = 0
         temp_ac = Aircraft()
+        if temp_ac.states is None:  # mypy fix
+            temp_ac.states = States()
         for s in temp_ac.states.key_list:
             for m in ["min", "max"]:
                 record = Record()
+                if record.aircraft is None:  # mypy fix
+                    record.aircraft = Aircraft()
                 record.record_key = s
                 record.is_max = True if m == "max" else False
 
@@ -271,10 +280,12 @@ class ADSBLogger:
         log.info(f"Stored {db_counter} record flights in database")
         return False
 
-    def fetch_adsb_info(self) -> True:
+    def fetch_adsb_info(self) -> bool:
         # Fetch newest JSON with ADS-B data
         try:
-            with closing(urlopen(self.path_json, None, 3.0)) as aircraft_file:
+            with closing(
+                urlopen(str(self.path_json), None, 3.0)
+            ) as aircraft_file:
                 aircraft_data = json.load(aircraft_file)
         except (HTTPError, URLError) as e:
             log.error(e)
@@ -285,8 +296,7 @@ class ADSBLogger:
         if self.time_json >= now:
             # log.debug("Skipping outdated ADS-B info")
             return True
-        else:
-            self.time_json = now
+        self.time_json = now
 
         # Parse all aircraft data
         self.current = []
@@ -298,6 +308,7 @@ class ADSBLogger:
             aircraft.time_end = self.time_json
 
             self.current.append(aircraft)
+        return False
 
     def check_records(self) -> None:
         for c in self.current:
