@@ -34,4 +34,6 @@ jobs:
     - uses: actions/setup-python@v4
       with:
         python-version: "3.11"
-    - uses: python/mypy@master
+    - run: |
+        pip install mypy
+    - run: mypy .
