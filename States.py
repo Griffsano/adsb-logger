@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 import dataclasses
 import logging
 from typing import Optional
