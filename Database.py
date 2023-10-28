@@ -1,6 +1,7 @@
 import logging
 import os
 import sqlite3
+from configparser import ConfigParser
 from datetime import datetime
 from typing import List
 
@@ -12,22 +13,17 @@ log = logging.getLogger(__name__)
 
 
 class Database:
-    # Paths
-    path_database: os.PathLike = None  # type: ignore
-
-    # Database
     db_connection: sqlite3.Connection = None  # type: ignore
     db_cursor: sqlite3.Cursor = None  # type: ignore
 
-    def __init__(self, path_database: str) -> None:
-        # Set up database
-        self.path_database = os.path.abspath(path_database)  # type: ignore
-        log.debug(f"Database: {self.path_database}")
+    def __init__(self, config: ConfigParser) -> None:
+        self.config = config
 
-        self.db_connection = sqlite3.connect(self.path_database)
+        # Setup and create database
+        path_database = self.config["PATHS"]["database"].strip()
+        log.debug(f"Database path: {path_database}")
+        self.db_connection = sqlite3.connect(os.path.abspath(path_database))
         self.db_cursor = self.db_connection.cursor()
-
-        # Create database
         self.create_database()
 
     def __del__(self) -> None:

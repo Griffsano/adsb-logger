@@ -1,5 +1,6 @@
 import json
 import logging
+from configparser import ConfigParser
 from contextlib import closing
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
@@ -11,14 +12,8 @@ log = logging.getLogger(__name__)
 
 
 class ADSBLogger:
-    # Settings
-    timeout_print_info: float = 3 * 60
-    timeout_unique_flight: float = 60 * 60
-    timeout_db_write: float = 15 * 60
-
-    # Paths
+    config: ConfigParser
     database: Database = None  # type: ignore
-    path_json: str = ""
 
     # Timestamps
     time_json: int = 0
@@ -32,33 +27,39 @@ class ADSBLogger:
     # Observed record values
     records: list = []
 
-    def __init__(self, path_database: str, path_json: str) -> None:
+    def __init__(self, config: ConfigParser) -> None:
         log.info("Starting ADS-B Logger")
+        self.config = config
 
         # Set up JSON path
-        self.path_json = path_json
-        log.debug(f"JSON path: {self.path_json}")
+        log.debug(f"JSON path: {self.config['PATHS']['json'].strip()}")
         self.fetch_adsb_info()
 
         # Set up database
-        self.database = Database(path_database)
+        self.database = Database(self.config)
 
         # Read recent flights from database
-        timestamp_min = int(self.time_json - self.timeout_unique_flight)
+        timestamp_min = int(
+            self.time_json - self.config["TIMEOUTS"].getfloat("unique_flight")
+        )
         for t in self.database.read_recent_flights(timestamp_min):
             self.tracked.append(t)
         for r in self.database.read_records():
             self.records.append(r)
 
     def loop(self):
-        if self.time_print_info < self.time_json - self.timeout_print_info:
+        if self.time_print_info < self.time_json - self.config["TIMEOUTS"].getfloat(
+            "print_info"
+        ):
             log.info(
                 f"{len(self.current)} currently seen flights, "
                 f"{len(self.tracked)} tracked recent flights"
             )
             self.time_print_info = self.time_json
 
-        if self.time_db_write < self.time_json - self.timeout_db_write:
+        if self.time_db_write < self.time_json - self.config["TIMEOUTS"].getfloat(
+            "db_write"
+        ):
             self.database.write_records(self.records, False)
             self.clean_tracked_flights()
             self.time_db_write = self.time_json
@@ -87,7 +88,9 @@ class ADSBLogger:
     def clean_tracked_flights(self) -> None:
         db_counter = 0
         for t in self.tracked:
-            if t.time_start < self.time_json - self.timeout_unique_flight:
+            if t.time_start < self.time_json - self.config["TIMEOUTS"].getfloat(
+                "unique_flight"
+            ):
                 self.database.write_flight(t, False)
                 self.tracked.remove(t)
                 db_counter += 1
@@ -97,7 +100,9 @@ class ADSBLogger:
     def fetch_adsb_info(self) -> bool:
         # Fetch newest JSON with ADS-B data
         try:
-            with closing(urlopen(self.path_json, None, 3.0)) as aircraft_file:
+            with closing(
+                urlopen(self.config["PATHS"]["json"].strip(), None, 3.0)
+            ) as aircraft_file:
                 aircraft_data = json.load(aircraft_file)
         except (HTTPError, URLError) as e:
             log.error(e)
@@ -139,10 +144,9 @@ class ADSBLogger:
         # Merge current flights with tracked (cached) flights
         for c in self.current:
             for t in reversed(self.tracked):
-                if (
-                    t.time_start > self.time_json - self.timeout_unique_flight
-                    and t.is_identical(c)
-                ):
+                if t.time_start > self.time_json - self.config["TIMEOUTS"].getfloat(
+                    "unique_flight"
+                ) and t.is_identical(c):
                     t.merge(c)
                     break
             else:

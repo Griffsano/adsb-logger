@@ -1,20 +1,10 @@
-import logging
 import signal
 import time
 
 import sdnotify  # type: ignore
 
 from ADSBLogger import ADSBLogger
-
-log = logging.getLogger(None)
-log.setLevel(logging.INFO)
-
-sh = logging.StreamHandler()
-sh.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-log.addHandler(sh)
-
-path_database = "/var/adsb-logger/adsb-logger.db"
-path_json = "http://localhost/tar1090/data/aircraft.json"
+from settings import config
 
 terminate = False
 
@@ -28,12 +18,12 @@ signal.signal(signal.SIGINT, terminate_handler)
 signal.signal(signal.SIGTERM, terminate_handler)
 
 n = sdnotify.SystemdNotifier()
-adsb = ADSBLogger(path_database, path_json)
+adsb = ADSBLogger(config)
 
 n.notify("READY=1")
 while not terminate:
     adsb.loop()
-    time.sleep(0.5)
+    time.sleep(config["TIMEOUTS"].getfloat("main_loop"))
 
 n.notify("STOPPING=1")
 del adsb
