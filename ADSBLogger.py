@@ -76,26 +76,18 @@ class ADSBLogger:
         self.database.write_records(self.records, False)
 
         # Write tracked (cached) flights to database
-        db_counter = 0
-        for t in self.tracked:
-            self.database.write_flight(t, False)
-            db_counter += 1
-        self.database.db_connection.commit()
-        log.info(f"Stored {db_counter} tracked flights in database")
-
+        self.database.write_flights(self.tracked)
         del self.database
 
     def clean_tracked_flights(self) -> None:
-        db_counter = 0
+        outdated = []
         for t in self.tracked:
             if t.time_start < self.time_json - self.config["TIMEOUTS"].getfloat(
                 "unique_flight"
             ):
-                self.database.write_flight(t, False)
+                outdated.append(t)
                 self.tracked.remove(t)
-                db_counter += 1
-        self.database.db_connection.commit()
-        log.info(f"Stored {db_counter} outdated recent flights in database")
+        self.database.write_flights(outdated)
 
     def fetch_adsb_info(self) -> bool:
         # Fetch newest JSON with ADS-B data

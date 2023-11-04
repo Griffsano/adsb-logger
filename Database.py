@@ -67,7 +67,7 @@ class Database:
             log.debug("Records table already exists in database")
         return
 
-    def read_recent_flights(self, timestamp_min) -> List[Aircraft]:
+    def read_recent_flights(self, timestamp_min: int) -> List[Aircraft]:
         db_command = f"SELECT * FROM aircraft WHERE time > {timestamp_min}"
         db_response = self.db_cursor.execute(db_command).fetchall()
         ac_list = []
@@ -86,6 +86,15 @@ class Database:
 
         log.info(f"Read {len(ac_list)} recent flights from database")
         return ac_list
+
+    def write_flights(self, aircraft: List[Aircraft]) -> int:
+        db_counter = 0
+        for t in aircraft:
+            if not self.write_flight(t, False):
+                db_counter += 1
+        self.db_connection.commit()
+        log.info(f"Stored {db_counter} recent flights in database")
+        return db_counter
 
     def write_flight(self, aircraft: Aircraft, commit_db: bool = True) -> bool:
         try:
@@ -115,6 +124,9 @@ class Database:
             )
 
         except sqlite3.IntegrityError:
+            log.error(
+                f"Error when storing flight {aircraft.flight} "
+                f"({aircraft.registration}/{aircraft.hex}) in database")
             return True
 
         if commit_db:
@@ -195,11 +207,14 @@ class Database:
                 # Continues if no integrity error is thrown
                 db_counter += 1
                 log.debug(
-                    f"Wrote {id} record with value "
-                    f"{getattr(r.aircraft.states, r.record_key)} to database"
+                    f"Stored {id} record with value "
+                    f"{getattr(r.aircraft.states, r.record_key)} in database"
                 )
 
             except sqlite3.IntegrityError:
+                log.error(
+                    f"Error when storing record {id} "
+                    f"({getattr(r.aircraft.states, r.record_key)}) in database")
                 return True
 
         if commit_db:
