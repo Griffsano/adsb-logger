@@ -36,5 +36,5 @@ jobs:
         python-version: "3.11"
     - run: |
         pip install mypy
-        mypy --install-types
+        pip install types-tabulate
         mypy .
