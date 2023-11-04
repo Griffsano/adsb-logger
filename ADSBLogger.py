@@ -101,6 +101,9 @@ class ADSBLogger:
                 )
             ) as aircraft_file:
                 aircraft_data = json.load(aircraft_file)
+        except TimeoutError as e:
+            log.error(e)
+            return True
         except (HTTPError, URLError, json.JSONDecodeError) as e:
             log.error(e)
             time.sleep(self.config["TIMEOUTS"].getfloat("http_read"))
