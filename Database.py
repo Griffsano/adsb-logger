@@ -1,6 +1,7 @@
 import logging
 import os
 import sqlite3
+from configparser import ConfigParser
 from datetime import datetime
 from typing import List
 
@@ -12,22 +13,17 @@ log = logging.getLogger(__name__)
 
 
 class Database:
-    # Paths
-    path_database: os.PathLike = None  # type: ignore
-
-    # Database
     db_connection: sqlite3.Connection = None  # type: ignore
     db_cursor: sqlite3.Cursor = None  # type: ignore
 
-    def __init__(self, path_database: str) -> None:
-        # Set up database
-        self.path_database = os.path.abspath(path_database)  # type: ignore
-        log.debug(f"Database: {self.path_database}")
+    def __init__(self, config: ConfigParser) -> None:
+        self.config = config
 
-        self.db_connection = sqlite3.connect(self.path_database)
+        # Setup and create database
+        path_database = self.config["PATHS"]["database"].strip()
+        log.debug(f"Database path: {path_database}")
+        self.db_connection = sqlite3.connect(os.path.abspath(path_database))
         self.db_cursor = self.db_connection.cursor()
-
-        # Create database
         self.create_database()
 
     def __del__(self) -> None:
@@ -71,7 +67,7 @@ class Database:
             log.debug("Records table already exists in database")
         return
 
-    def read_recent_flights(self, timestamp_min) -> List[Aircraft]:
+    def read_recent_flights(self, timestamp_min: int) -> List[Aircraft]:
         db_command = f"SELECT * FROM aircraft WHERE time > {timestamp_min}"
         db_response = self.db_cursor.execute(db_command).fetchall()
         ac_list = []
@@ -90,6 +86,15 @@ class Database:
 
         log.info(f"Read {len(ac_list)} recent flights from database")
         return ac_list
+
+    def write_flights(self, aircraft: List[Aircraft]) -> int:
+        db_counter = 0
+        for t in aircraft:
+            if not self.write_flight(t, False):
+                db_counter += 1
+        self.db_connection.commit()
+        log.info(f"Stored {db_counter} recent flights in database")
+        return db_counter
 
     def write_flight(self, aircraft: Aircraft, commit_db: bool = True) -> bool:
         try:
@@ -118,7 +123,12 @@ class Database:
                 ),
             )
 
-        except sqlite3.IntegrityError:
+        except sqlite3.IntegrityError as e:
+            log.error(
+                f"Error when storing flight {aircraft.flight} "
+                f"({aircraft.registration}/{aircraft.hex}) in database"
+            )
+            log.error(e)
             return True
 
         if commit_db:
@@ -153,6 +163,7 @@ class Database:
                         f"Read {s}_{m} record with value "
                         f"{getattr(record.aircraft.states, s)} from database"
                     )
+                    record.is_stored = True
                     db_counter += 1
                 else:
                     log.debug(f"Record for {s}_{m} not available in database")
@@ -165,6 +176,8 @@ class Database:
         db_counter = 0
         for r in records:
             try:
+                if r.is_stored:
+                    continue
                 if r.aircraft is None:  # mypy fix
                     r.aircraft = Aircraft()
                 db_command = (
@@ -199,11 +212,18 @@ class Database:
                 # Continues if no integrity error is thrown
                 db_counter += 1
                 log.debug(
-                    f"Wrote {id} record with value "
-                    f"{getattr(r.aircraft.states, r.record_key)} to database"
+                    f"Stored {id} record with value "
+                    f"{getattr(r.aircraft.states, r.record_key)} in database"
                 )
 
-            except sqlite3.IntegrityError:
+            except sqlite3.IntegrityError as e:
+                if r.aircraft is None:  # mypy fix
+                    r.aircraft = Aircraft()
+                log.error(
+                    f"Error when storing record {id} "
+                    f"({getattr(r.aircraft.states, r.record_key)}) in database"
+                )
+                log.error(e)
                 return True
 
         if commit_db:
