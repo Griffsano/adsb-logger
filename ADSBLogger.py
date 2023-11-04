@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from configparser import ConfigParser
 from contextlib import closing
 from urllib.error import HTTPError, URLError
@@ -93,11 +94,16 @@ class ADSBLogger:
         # Fetch newest JSON with ADS-B data
         try:
             with closing(
-                urlopen(self.config["PATHS"]["json"].strip(), None, 3.0)
+                urlopen(
+                    self.config["PATHS"]["json"].strip(),
+                    None,
+                    self.config["TIMEOUTS"].getfloat("http_read"),
+                )
             ) as aircraft_file:
                 aircraft_data = json.load(aircraft_file)
-        except (HTTPError, URLError) as e:
+        except (HTTPError, URLError, json.JSONDecodeError) as e:
             log.error(e)
+            time.sleep(self.config["TIMEOUTS"].getfloat("http_read"))
             return True
 
         # Check if data is new
