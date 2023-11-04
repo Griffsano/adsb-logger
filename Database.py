@@ -2,7 +2,7 @@ import logging
 import os
 import sqlite3
 from configparser import ConfigParser
-from datetime import datetime
+from datetime import datetime, time
 from typing import List
 
 from Aircraft import Aircraft
@@ -237,32 +237,63 @@ class Database:
         log.info(f"Stored {db_counter} record flights in database")
         return False
 
-    def evaluate_totals(self) -> List[List[str]]:
-        statistics = [["Database Total", "Count"]]
+    def evaluate_counts(
+        self, timestamp_min: float = 0, timestamp_max: float = 0
+    ) -> List[List[str]]:
+        if timestamp_max <= timestamp_min:
+            timestamp_max = datetime.timestamp(datetime.now())
+        statistics = [["Database Keys", "Count"]]
+        commands = {
+            "Entries": "COUNT(id)",
+            "Addresses": "COUNT(DISTINCT hex)",
+            "Flights": "COUNT(DISTINCT flight)",
+            "Types": "COUNT(DISTINCT type)",
+        }
 
-        # Total Entries
-        db_command = "SELECT COUNT(id) FROM aircraft"
-        db_response = self.db_cursor.execute(db_command).fetchone()
-        statistics.append(["Entries", db_response[0]])
-
-        # Total Addresses
-        db_command = "SELECT COUNT(DISTINCT hex) FROM aircraft"
-        db_response = self.db_cursor.execute(db_command).fetchone()
-        statistics.append(["Addresses", db_response[0]])
-
-        # Total Flights
-        db_command = "SELECT COUNT(DISTINCT flight) FROM aircraft"
-        db_response = self.db_cursor.execute(db_command).fetchone()
-        statistics.append(["Flights", db_response[0]])
-
-        # Total Types
-        db_command = "SELECT COUNT(DISTINCT type) FROM aircraft"
-        db_response = self.db_cursor.execute(db_command).fetchone()
-        statistics.append(["Types", db_response[0]])
+        for name, cmd in commands.items():
+            db_command = (
+                f"SELECT {cmd} FROM aircraft "
+                f"WHERE time > {timestamp_min} AND time < {timestamp_max}"
+            )
+            db_response = self.db_cursor.execute(db_command).fetchone()
+            statistics.append([name, db_response[0]])
 
         return statistics
 
-    def evaluate_entries(self, key: str, max_count: int = 5) -> List[List[str]]:
+    def evaluate_days(self, day_count: int = 5) -> List[List[str]]:
+        statistics = [["Day (local time)", "Entries", "Addresses", "Flights", "Types"]]
+        now = datetime.now()
+
+        # Total entries in database
+        result = self.evaluate_counts(0, datetime.timestamp(now))
+        day_counts = ["Database total"]
+        for count_type in range(1, len(statistics[0])):
+            # Ensure the type of count (e.g., entries or flights) is correct
+            assert result[count_type][0] == statistics[0][count_type]
+            day_counts.append(result[count_type][1])
+        statistics.append(day_counts)
+
+        # Database entries for each day
+        timestamp_min = datetime.timestamp(datetime.combine(now, time.min))
+        timestamp_max = datetime.timestamp(datetime.combine(now, time.max))
+        for day in range(day_count):
+            match day:
+                case 0:
+                    day_name = "Today"
+                case 1:
+                    day_name = "Yesterday"
+                case _:
+                    day_name = f"{day} days ago"
+            result = self.evaluate_counts(timestamp_min, timestamp_max)
+            day_counts = [day_name]
+            day_counts.extend(result[c][1] for c in range(1, len(statistics[0])))
+            statistics.append(day_counts)
+            timestamp_min -= 24 * 3600
+            timestamp_max -= 24 * 3600
+
+        return statistics
+
+    def evaluate_flights(self, key: str, max_count: int = 5) -> List[List[str]]:
         match key:
             case "flight":
                 db_command = (
