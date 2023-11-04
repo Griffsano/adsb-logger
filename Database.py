@@ -74,7 +74,7 @@ class Database:
         return
 
     def read_recent_flights(self, timestamp_min: int) -> List[Aircraft]:
-        db_command = f"SELECT * FROM aircraft WHERE time > {timestamp_min}"
+        db_command = f"SELECT * FROM aircraft WHERE time >= {timestamp_min}"
         db_response = self.db_cursor.execute(db_command).fetchall()
         ac_list = []
 
@@ -253,7 +253,7 @@ class Database:
         for name, cmd in commands.items():
             db_command = (
                 f"SELECT {cmd} FROM aircraft "
-                f"WHERE time > {timestamp_min} AND time < {timestamp_max}"
+                f"WHERE time >= {timestamp_min} AND time < {timestamp_max}"
             )
             db_response = self.db_cursor.execute(db_command).fetchone()
             statistics.append([name, db_response[0]])
@@ -277,13 +277,12 @@ class Database:
         timestamp_min = datetime.timestamp(datetime.combine(now, time.min))
         timestamp_max = datetime.timestamp(datetime.combine(now, time.max))
         for day in range(day_count):
-            match day:
-                case 0:
-                    day_name = "Today"
-                case 1:
-                    day_name = "Yesterday"
-                case _:
-                    day_name = f"{day} days ago"
+            if day == 0:
+                day_name = "Today"
+            elif day == 1:
+                day_name = "Yesterday"
+            else:
+                day_name = f"{day} days ago"
             result = self.evaluate_counts(timestamp_min, timestamp_max)
             day_counts = [day_name]
             day_counts.extend(result[c][1] for c in range(1, len(statistics[0])))
@@ -294,37 +293,36 @@ class Database:
         return statistics
 
     def evaluate_flights(self, key: str, max_count: int = 5) -> List[List[str]]:
-        match key:
-            case "flight":
-                db_command = (
-                    "SELECT flight, COUNT(flight) FROM aircraft "
-                    "GROUP BY flight "
-                    "ORDER BY COUNT(flight) DESC"
-                )
-            case "registration":
-                db_command = (
-                    "SELECT registration, COUNT(registration) FROM aircraft "
-                    "GROUP BY registration "
-                    "ORDER BY COUNT(registration) DESC"
-                )
-            case "type":
-                db_command = (
-                    "SELECT type, COUNT(type) FROM aircraft "
-                    "GROUP BY type "
-                    "ORDER BY COUNT(type) DESC"
-                )
-            case "airline":
-                db_command = (
-                    "SELECT substr(flight, 1, 3) as airline, COUNT(flight) as count, "
-                    "REPLACE(registration,'-','') as registration_short, "
-                    "REPLACE(flight,' ','') as flight_short FROM aircraft "
-                    "WHERE registration_short is not NULL "
-                    "AND registration_short is not flight_short "
-                    "GROUP BY airline "
-                    "ORDER BY count DESC"
-                )
-            case _:
-                raise KeyError(f"Unknown database entry key {key}")
+        if key == "flight":
+            db_command = (
+                "SELECT flight, COUNT(flight) FROM aircraft "
+                "GROUP BY flight "
+                "ORDER BY COUNT(flight) DESC"
+            )
+        elif key == "registration":
+            db_command = (
+                "SELECT registration, COUNT(registration) FROM aircraft "
+                "GROUP BY registration "
+                "ORDER BY COUNT(registration) DESC"
+            )
+        elif key == "type":
+            db_command = (
+                "SELECT type, COUNT(type) FROM aircraft "
+                "GROUP BY type "
+                "ORDER BY COUNT(type) DESC"
+            )
+        elif key == "airline":
+            db_command = (
+                "SELECT substr(flight, 1, 3) as airline, COUNT(flight) as count, "
+                "REPLACE(registration,'-','') as registration_short, "
+                "REPLACE(flight,' ','') as flight_short FROM aircraft "
+                "WHERE registration_short is not NULL "
+                "AND registration_short is not flight_short "
+                "GROUP BY airline "
+                "ORDER BY count DESC"
+            )
+        else:
+            raise KeyError(f"Unknown database entry key {key}")
         statistics = [[key.capitalize(), "Count"]]
         db_response = self.db_cursor.execute(db_command).fetchmany(max_count)
         statistics.extend([r[0], r[1]] for r in db_response)
