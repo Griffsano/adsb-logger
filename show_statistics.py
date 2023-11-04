@@ -20,6 +20,8 @@ database = Database(config, True)
 table_format = "outline"
 count = 5
 
+print("Evaluating statistics for ADS-B Logger database ...")
+
 # Table for total database entries
 if False:
     result = database.evaluate_counts()

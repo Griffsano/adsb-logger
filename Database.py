@@ -337,4 +337,4 @@ class Database:
         for r in db_response:
             timestamp = datetime.fromtimestamp(r[-1])
             statistics.append(list(r[0:-1]) + [timestamp])
-        return statistics
+        return sorted(statistics, key=lambda x: x[0])
