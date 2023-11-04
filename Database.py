@@ -16,15 +16,21 @@ class Database:
     db_connection: sqlite3.Connection = None  # type: ignore
     db_cursor: sqlite3.Cursor = None  # type: ignore
 
-    def __init__(self, config: ConfigParser) -> None:
+    def __init__(self, config: ConfigParser, read_only: bool = False) -> None:
         self.config = config
 
         # Setup and create database
         path_database = self.config["PATHS"]["database"].strip()
         log.debug(f"Database path: {path_database}")
-        self.db_connection = sqlite3.connect(os.path.abspath(path_database))
+        if read_only:
+            self.db_connection = sqlite3.connect(
+                os.path.abspath(path_database), uri=True
+            )
+        else:
+            self.db_connection = sqlite3.connect(os.path.abspath(path_database))
         self.db_cursor = self.db_connection.cursor()
-        self.create_database()
+        if not read_only:
+            self.create_database()
 
     def __del__(self) -> None:
         # Close database
@@ -230,3 +236,76 @@ class Database:
             self.db_connection.commit()
         log.info(f"Stored {db_counter} record flights in database")
         return False
+
+    def evaluate_totals(self) -> List[List[str]]:
+        statistics = [["Database Total", "Count"]]
+
+        # Total Entries
+        db_command = "SELECT COUNT(id) FROM aircraft"
+        db_response = self.db_cursor.execute(db_command).fetchone()
+        statistics.append(["Entries", db_response[0]])
+
+        # Total Addresses
+        db_command = "SELECT COUNT(DISTINCT hex) FROM aircraft"
+        db_response = self.db_cursor.execute(db_command).fetchone()
+        statistics.append(["Addresses", db_response[0]])
+
+        # Total Flights
+        db_command = "SELECT COUNT(DISTINCT flight) FROM aircraft"
+        db_response = self.db_cursor.execute(db_command).fetchone()
+        statistics.append(["Flights", db_response[0]])
+
+        # Total Types
+        db_command = "SELECT COUNT(DISTINCT type) FROM aircraft"
+        db_response = self.db_cursor.execute(db_command).fetchone()
+        statistics.append(["Types", db_response[0]])
+
+        return statistics
+
+    def evaluate_entries(self, key: str, max_count: int = 5) -> List[List[str]]:
+        match key:
+            case "flight":
+                db_command = (
+                    "SELECT flight, COUNT(flight) FROM aircraft "
+                    "GROUP BY flight "
+                    "ORDER BY COUNT(flight) DESC"
+                )
+            case "registration":
+                db_command = (
+                    "SELECT registration, COUNT(registration) FROM aircraft "
+                    "GROUP BY registration "
+                    "ORDER BY COUNT(registration) DESC"
+                )
+            case "type":
+                db_command = (
+                    "SELECT type, COUNT(type) FROM aircraft "
+                    "GROUP BY type "
+                    "ORDER BY COUNT(type) DESC"
+                )
+            case "airline":
+                db_command = (
+                    "SELECT substr(flight, 1, 3) as airline, COUNT(flight) as count, "
+                    "REPLACE(registration,'-','') as registration_short, "
+                    "REPLACE(flight,' ','') as flight_short FROM aircraft "
+                    "WHERE registration_short is not NULL "
+                    "AND registration_short is not flight_short "
+                    "GROUP BY airline "
+                    "ORDER BY count DESC"
+                )
+            case _:
+                raise KeyError(f"Unknown database entry key {key}")
+        statistics = [[key.capitalize(), "Count"]]
+        db_response = self.db_cursor.execute(db_command).fetchmany(max_count)
+        statistics.extend([r[0], r[1]] for r in db_response)
+        return statistics
+
+    def evaluate_records(self) -> List[List[str]]:
+        statistics = [["Record", "Value", "Registration", "Type", "Flight", "Time"]]
+        db_command = (
+            "SELECT id as record, value, registration, type, flight, time FROM records"
+        )
+        db_response = self.db_cursor.execute(db_command).fetchall()
+        for r in db_response:
+            timestamp = datetime.fromtimestamp(r[-1])
+            statistics.append(list(r[0:-1]) + [timestamp])
+        return statistics
