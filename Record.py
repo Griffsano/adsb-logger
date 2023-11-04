@@ -15,6 +15,7 @@ class Record:
     record_key: str = ""
     is_max: Optional[bool] = None
     timestamp: int = 0
+    is_stored: bool = False
 
     def __init__(self) -> None:
         self.aircraft = Aircraft()

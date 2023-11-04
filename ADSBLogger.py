@@ -124,7 +124,8 @@ class ADSBLogger:
                 if r.compare_aircraft(c):
                     r.timestamp = self.time_json
                     r.aircraft = c
-                    m = "max" if r.is_max else "min"
+                    r.is_stored = False
+                    m = "max" if r.is_max else "min"                    
                     log.info(
                         f"Registration {r.aircraft.registration} "
                         f"set new record for {m} {r.record_key}: "

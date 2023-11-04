@@ -123,10 +123,12 @@ class Database:
                 ),
             )
 
-        except sqlite3.IntegrityError:
+        except sqlite3.IntegrityError as e:
             log.error(
                 f"Error when storing flight {aircraft.flight} "
-                f"({aircraft.registration}/{aircraft.hex}) in database")
+                f"({aircraft.registration}/{aircraft.hex}) in database"
+            )
+            log.error(e)
             return True
 
         if commit_db:
@@ -161,6 +163,7 @@ class Database:
                         f"Read {s}_{m} record with value "
                         f"{getattr(record.aircraft.states, s)} from database"
                     )
+                    record.is_stored = True
                     db_counter += 1
                 else:
                     log.debug(f"Record for {s}_{m} not available in database")
@@ -173,6 +176,8 @@ class Database:
         db_counter = 0
         for r in records:
             try:
+                if r.is_stored:
+                    continue
                 if r.aircraft is None:  # mypy fix
                     r.aircraft = Aircraft()
                 db_command = (
@@ -211,10 +216,14 @@ class Database:
                     f"{getattr(r.aircraft.states, r.record_key)} in database"
                 )
 
-            except sqlite3.IntegrityError:
+            except sqlite3.IntegrityError as e:
+                if r.aircraft is None:  # mypy fix
+                    r.aircraft = Aircraft()
                 log.error(
                     f"Error when storing record {id} "
-                    f"({getattr(r.aircraft.states, r.record_key)}) in database")
+                    f"({getattr(r.aircraft.states, r.record_key)}) in database"
+                )
+                log.error(e)
                 return True
 
         if commit_db:
