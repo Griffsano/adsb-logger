@@ -2,7 +2,7 @@ import logging
 import os
 import sqlite3
 from configparser import ConfigParser
-from datetime import datetime
+from datetime import datetime, time
 from typing import List
 
 from Aircraft import Aircraft
@@ -16,15 +16,21 @@ class Database:
     db_connection: sqlite3.Connection = None  # type: ignore
     db_cursor: sqlite3.Cursor = None  # type: ignore
 
-    def __init__(self, config: ConfigParser) -> None:
+    def __init__(self, config: ConfigParser, read_only: bool = False) -> None:
         self.config = config
 
         # Setup and create database
         path_database = self.config["PATHS"]["database"].strip()
         log.debug(f"Database path: {path_database}")
-        self.db_connection = sqlite3.connect(os.path.abspath(path_database))
+        if read_only:
+            self.db_connection = sqlite3.connect(
+                os.path.abspath(path_database), uri=True
+            )
+        else:
+            self.db_connection = sqlite3.connect(os.path.abspath(path_database))
         self.db_cursor = self.db_connection.cursor()
-        self.create_database()
+        if not read_only:
+            self.create_database()
 
     def __del__(self) -> None:
         # Close database
@@ -68,7 +74,7 @@ class Database:
         return
 
     def read_recent_flights(self, timestamp_min: int) -> List[Aircraft]:
-        db_command = f"SELECT * FROM aircraft WHERE time > {timestamp_min}"
+        db_command = f"SELECT * FROM aircraft WHERE time >= {timestamp_min}"
         db_response = self.db_cursor.execute(db_command).fetchall()
         ac_list = []
 
@@ -230,3 +236,105 @@ class Database:
             self.db_connection.commit()
         log.info(f"Stored {db_counter} record flights in database")
         return False
+
+    def evaluate_counts(
+        self, timestamp_min: float = 0, timestamp_max: float = 0
+    ) -> List[List[str]]:
+        if timestamp_max <= timestamp_min:
+            timestamp_max = datetime.timestamp(datetime.now())
+        statistics = [["Database Keys", "Count"]]
+        commands = {
+            "Entries": "COUNT(id)",
+            "Addresses": "COUNT(DISTINCT hex)",
+            "Flights": "COUNT(DISTINCT flight)",
+            "Types": "COUNT(DISTINCT type)",
+        }
+
+        for name, cmd in commands.items():
+            db_command = (
+                f"SELECT {cmd} FROM aircraft "
+                f"WHERE time >= {timestamp_min} AND time < {timestamp_max}"
+            )
+            db_response = self.db_cursor.execute(db_command).fetchone()
+            statistics.append([name, db_response[0]])
+
+        return statistics
+
+    def evaluate_days(self, day_count: int = 5) -> List[List[str]]:
+        statistics = [["Day (local time)", "Entries", "Addresses", "Flights", "Types"]]
+        now = datetime.now()
+
+        # Total entries in database
+        result = self.evaluate_counts(0, datetime.timestamp(now))
+        day_counts = ["Database total"]
+        for count_type in range(1, len(statistics[0])):
+            # Ensure the type of count (e.g., entries or flights) is correct
+            assert result[count_type][0] == statistics[0][count_type]
+            day_counts.append(result[count_type][1])
+        statistics.append(day_counts)
+
+        # Database entries for each day
+        timestamp_min = datetime.timestamp(datetime.combine(now, time.min))
+        timestamp_max = datetime.timestamp(datetime.combine(now, time.max))
+        for day in range(day_count):
+            if day == 0:
+                day_name = "Today until now"
+            elif day == 1:
+                day_name = "Yesterday"
+            else:
+                day_name = f"{day} days ago"
+            result = self.evaluate_counts(timestamp_min, timestamp_max)
+            day_counts = [day_name]
+            day_counts.extend(result[c][1] for c in range(1, len(statistics[0])))
+            statistics.append(day_counts)
+            timestamp_min -= 24 * 3600
+            timestamp_max -= 24 * 3600
+
+        return statistics
+
+    def evaluate_flights(self, key: str, max_count: int = 5) -> List[List[str]]:
+        if key == "flight":
+            db_command = (
+                "SELECT flight, COUNT(flight) FROM aircraft "
+                "GROUP BY flight "
+                "ORDER BY COUNT(flight) DESC"
+            )
+        elif key == "registration":
+            db_command = (
+                "SELECT registration, COUNT(registration) FROM aircraft "
+                "GROUP BY registration "
+                "ORDER BY COUNT(registration) DESC"
+            )
+        elif key == "type":
+            db_command = (
+                "SELECT type, COUNT(type) FROM aircraft "
+                "GROUP BY type "
+                "ORDER BY COUNT(type) DESC"
+            )
+        elif key == "airline":
+            db_command = (
+                "SELECT substr(flight, 1, 3) as airline, COUNT(flight) as count, "
+                "REPLACE(registration,'-','') as registration_short, "
+                "REPLACE(flight,' ','') as flight_short FROM aircraft "
+                "WHERE registration_short is not NULL "
+                "AND registration_short is not flight_short "
+                "GROUP BY airline "
+                "ORDER BY count DESC"
+            )
+        else:
+            raise KeyError(f"Unknown database entry key {key}")
+        statistics = [[key.capitalize(), "Count"]]
+        db_response = self.db_cursor.execute(db_command).fetchmany(max_count)
+        statistics.extend([r[0], r[1]] for r in db_response)
+        return statistics
+
+    def evaluate_records(self) -> List[List[str]]:
+        statistics = [["Record", "Value", "Registration", "Type", "Flight", "Time"]]
+        db_command = (
+            "SELECT id as record, value, registration, type, flight, time FROM records"
+        )
+        db_response = self.db_cursor.execute(db_command).fetchall()
+        for r in db_response:
+            timestamp = datetime.fromtimestamp(r[-1])
+            statistics.append(list(r[0:-1]) + [timestamp])
+        return sorted(statistics, key=lambda x: x[0])

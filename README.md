@@ -1,13 +1,47 @@
 # ADS-B Logger
 
-This is a logger for ADS-B receivers that stores all received flights and other data.
+This is a logger for ADS-B receivers that stores all received flights and basic flight information.
+To keep it lightweight, data such as aircraft locations are not stored.
 
 ## Key Features
 
 - Logging of all flights detected by your ADS-B receiver, including flight number, registration, aircraft type, and timestamp of first contact
-- Logging of record values such as highest altitude, highest speed, longest distance from receiver
+- Logging of record values such as highest altitude, highest speed, and longest distance from receiver
+- Runs parallel to any installed feeders (e.g., Flightradar24, [adsb.fi](https://adsb.fi/)) and does not interfere
 - Storage in a [SQLite](https://www.sqlite.org/index.html) database that can be further processed, e.g., by [Grafana](https://grafana.com) for visualization
-- Can be run as Linux systemd service
+- Can be run as [Linux systemd service](#variant-2-set-up-ads-b-logger-as-service) or [simply as python call](#variant-1-run-ads-b-logger-as-simple-python-script)
+- Prints [statistics](#statistics) such as total flights per day, most common airlines, or record values. Here is a shortened example:
+
+```
+                          STATISTICS PER DAY
++--------------------+-----------+-------------+-----------+---------+
+| Day (local time)   |   Entries |   Addresses |   Flights |   Types |
++====================+===========+=============+===========+=========+
+| Database total     |    319456 |       18246 |     34201 |     481 |
+| Today until now    |      2849 |        1764 |      2130 |     146 |
+| Yesterday          |      3945 |        2945 |      3217 |     143 |
++--------------------+-----------+-------------+-----------+---------+
+
+                                        MOST COMMON ENTRIES
++----------+---------+  +-----------+---------+  +----------------+---------+  +--------+---------+
+| Flight   |   Count |  | Airline   |   Count |  | Registration   |   Count |  | Type   |   Count |
++==========+=========+  +===========+=========+  +================+=========+  +========+=========+
+| DLH123   |      76 |  | DLH       |   31670 |  | D-ABCD         |     432 |  | A320   |   43621 |
+| SWR456   |      73 |  | UAL       |   13792 |  | OE-ABC         |     419 |  | B738   |   39125 |
+| AUA123   |      68 |  | UAE       |    3498 |  | HB-ABC         |     384 |  | A20N   |   26457 |
++----------+---------+  +-----------+---------+  +----------------+---------+  +--------+---------+
+
+                                      RECORD VALUES
++---------------+------------+----------------+--------+----------+---------------------+
+| Record        |      Value | Registration   | Type   | Flight   | Time                |
++===============+============+================+========+==========+=====================+
+| alt_baro_max  |  94300     | N12345         | A359   | UAL123   | 2023-10-24 05:00:47 |
+| ias_max       |    723     | D-ABCD         | CRJ9   | DLH123   | 2023-10-06 14:07:11 |
+| ias_min       |     51     | D-EFGH         | C172   | DEFGH    | 2023-10-18 13:24:51 |
+| mach_max      |      0.9   | OE-ABC         | GA6C   | AUA123   | 2023-10-23 09:29:37 |
+| r_dst_max     |    264     | HB-ABC         | A20N   |          | 2023-10-07 17:54:15 |
++---------------+------------+----------------+--------+----------+---------------------+
+```
 
 ## More Details
 
@@ -19,7 +53,7 @@ The ADS-B Logger has been developed for [readsb](https://github.com/wiedehopf/re
 - Distinctive aircraft (ICAO HEX code) and flights (airline flight numbers) are stored in a database, along with the first time of contact, aircraft registration (if available) and aicraft type (if available).
 - As default setting, a flight is considered unique for one hour from initial contact, allowing the detection of multiple flights by the same aircraft within one day.
 This is especially relevant for general aviation flights without specific flight number.
-The threshold of one hour can be configured in the [settings.ini file](settings.ini) as required.
+The threshold of one hour can be configured in the [settings.ini](settings.ini) file as required.
 - Information regarding currently seen flights and tracked recent flights are written to the service logs or screen in certain time intervals.
 
 ### Database
@@ -37,7 +71,7 @@ The threshold of one hour can be configured in the [settings.ini file](settings.
 
 ### Further Information
 
-- readsb ADS-B decoder:
+- `readsb` ADS-B decoder:
 https://github.com/wiedehopf/readsb
 - Wiedehopf's very helpful wiki on ADS-B receivers:
 https://github.com/wiedehopf/adsb-wiki/wiki
@@ -46,54 +80,25 @@ https://github.com/wiedehopf/readsb/blob/dev/README-json.md#aircraftjson-and---j
 
 ## Settings
 
-All settings, such as the database path and the timeout for treating a flight as unique, are stored in the [settings.ini file](settings.ini).
+All settings, such as the database path and the timeout for treating a flight as unique, are stored in the [settings.ini](settings.ini) file.
 The file can be adjusted by the user as necessary.
 
 ## Setup / Installation
 
-### Optional: Additional Information in aircraft.json
-
-ADS-B data does not contain the aircraft registration and aircraft type.
-An additional database is necessary to provide this data based on the unique 24-bit ICAO identifier assigned to the aicraft.
-The following adds the registration and aircraft type to `aircraft.json`.
-The folder paths may have to be modified as required.
-
-1. Download the aircraft database:
-    ```
-    wget -O /usr/local/share/tar1090/aircraft.csv.gz https://github.com/wiedehopf/tar1090-db/raw/csv/aircraft.csv.gz
-    ```
-
-2. Update the `readsb` configuration:
-    ```
-    sudo nano /etc/default/readsb
-    ```
-
-    Add the following setting to, e.g., `JSON_OPTIONS`:
-    ```
-    --db-file=/usr/local/share/tar1090/aircraft.csv.gz
-    ```
-
-    Optionally you can also add `--db-file-lt` for adding the long aircraft type name in addition to the short ICAO aircraft type.
-
-3. Restart `readsb`:
-    ```
-    sudo systemctl restart readsb.service
-    ```
-
-4. Sources / further reading:
-    - https://github.com/wiedehopf/readsb#configuration
-    - https://github.com/wiedehopf/tar1090#0800-destroy-sd-card
-
 ### Clone adsb-logger Repository
 
-1. Clone this repo to a local folder, e.g., `/var/adsb-logger/`
-2. Configure the [settings.ini file](settings.ini) as required, e.g.,
+1. Clone this repo to a local folder, e.g., `/var/adsb-logger/`:
+    ```
+    cd /var/
+    sudo git clone git@github.com:Griffsano/adsb-logger.git
+    ```
+2. Configure the [settings.ini](settings.ini) file as required, e.g.,
     ```
     cd /var/adsb-logger/
     sudo nano settings.ini
     ```
 
-### Variant 1: Run ADS-B Logger in Terminal
+### Variant 1: Run ADS-B Logger as Simple Python Script
 
 It is suggested to try variant 1 before setting up the service ([variant 2](#variant-2-set-up-ads-b-logger-as-service)) to ensure that the logger is working as intended.
 
@@ -101,7 +106,7 @@ It is suggested to try variant 1 before setting up the service ([variant 2](#var
     ```
     python main_noservice.py
     ```
-2. The ADS-B Logger can be stopped by pressing CTRL + C.
+2. The ADS-B Logger can be stopped by pressing `CTRL + C`.
 
 ### Variant 2: Set up ADS-B Logger as Service
 
@@ -131,11 +136,49 @@ It is suggested to try variant 1 before setting up the service ([variant 2](#var
     sudo systemctl start --now adsb-logger.service
     ```
 
-## Log Files
+6. Access the log files via `journalctl`:
+    ```
+    sudo journalctl -u adsb-logger.service -f
+    ```
 
-For the systemd service version ([variant 2](#variant-2-set-up-ads-b-logger-as-service)), access the log files via
+### Optional: Additional Information in aircraft.json
+
+ADS-B data does not contain the aircraft registration and aircraft type.
+An additional database is necessary to provide this data based on the unique 24-bit ICAO identifier assigned to the aicraft.
+The following adds the registration and aircraft type to `aircraft.json`.
+The folder paths may have to be modified as required.
+
+1. Download the aircraft database:
+    ```
+    wget -O /usr/local/share/tar1090/aircraft.csv.gz https://github.com/wiedehopf/tar1090-db/raw/csv/aircraft.csv.gz
+    ```
+
+2. Update the `readsb` configuration:
+    ```
+    sudo nano /etc/default/readsb
+    ```
+
+    Add the following setting to, e.g., `JSON_OPTIONS`:
+    ```
+    --db-file=/usr/local/share/tar1090/aircraft.csv.gz
+    ```
+
+    Optionally, you can also add `--db-file-lt` for adding the long aircraft type name in addition to the short ICAO aircraft type.
+
+3. Restart `readsb`:
+    ```
+    sudo systemctl restart readsb.service
+    ```
+
+4. Sources / further reading:
+    - https://github.com/wiedehopf/readsb#configuration
+    - https://github.com/wiedehopf/tar1090#0800-destroy-sd-card
+
+## Statistics
+
+Print tables with statistics by calling the [show_statistics.py](show_statistics.py) file:
 ```
-sudo journalctl -u adsb-logger.service -f
+python3 show_statistics.py
 ```
 
 ## Credits
