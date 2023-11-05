@@ -278,7 +278,7 @@ class Database:
         timestamp_max = datetime.timestamp(datetime.combine(now, time.max))
         for day in range(day_count):
             if day == 0:
-                day_name = "Today"
+                day_name = "Today until now"
             elif day == 1:
                 day_name = "Yesterday"
             else:

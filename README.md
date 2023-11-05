@@ -7,7 +7,39 @@ This is a logger for ADS-B receivers that stores all received flights and other 
 - Logging of all flights detected by your ADS-B receiver, including flight number, registration, aircraft type, and timestamp of first contact
 - Logging of record values such as highest altitude, highest speed, longest distance from receiver
 - Storage in a [SQLite](https://www.sqlite.org/index.html) database that can be further processed, e.g., by [Grafana](https://grafana.com) for visualization
-- Can be run as Linux systemd service
+- Can be run as [Linux systemd service](#variant-2-set-up-ads-b-logger-as-service)
+- Print [statistics](#statistics) such as total flights per day, most common airlines, or record values. Here is a shortened example:
+
+```
+                          STATISTICS PER DAY
++--------------------+-----------+-------------+-----------+---------+
+| Day (local time)   |   Entries |   Addresses |   Flights |   Types |
++====================+===========+=============+===========+=========+
+| Database total     |    319456 |       18246 |     34201 |     481 |
+| Today until now    |      2849 |        1764 |      2130 |     146 |
+| Yesterday          |      3945 |        2945 |      3217 |     143 |
++--------------------+-----------+-------------+-----------+---------+
+
+                                        MOST COMMON ENTRIES
++----------+---------+  +-----------+---------+  +----------------+---------+  +--------+---------+
+| Flight   |   Count |  | Airline   |   Count |  | Registration   |   Count |  | Type   |   Count |
++==========+=========+  +===========+=========+  +================+=========+  +========+=========+
+| DLH123   |      76 |  | DLH       |   31670 |  | D-ABCD         |     432 |  | A320   |   43621 |
+| SWR456   |      73 |  | UAL       |   13792 |  | OE-ABC         |     419 |  | B738   |   39125 |
+| AUA123   |      68 |  | UAE       |    3498 |  | HB-ABC         |     384 |  | A20N   |   26457 |
++----------+---------+  +-----------+---------+  +----------------+---------+  +--------+---------+
+
+                                      RECORD VALUES
++---------------+------------+----------------+--------+----------+---------------------+
+| Record        |      Value | Registration   | Type   | Flight   | Time                |
++===============+============+================+========+==========+=====================+
+| alt_baro_max  |  94300     | N12345         | A359   | UAL123   | 2023-10-24 05:00:47 |
+| ias_max       |    723     | D-ABCD         | CRJ9   | DLH123   | 2023-10-06 14:07:11 |
+| ias_min       |     51     | D-EFGH         | C172   | DEFGH    | 2023-10-18 13:24:51 |
+| mach_max      |      0.9   | OE-ABC         | GA6C   | AUA123   | 2023-10-23 09:29:37 |
+| r_dst_max     |    264     | HB-ABC         | A20N   |          | 2023-10-07 17:54:15 |
++---------------+------------+----------------+--------+----------+---------------------+
+```
 
 ## More Details
 
@@ -19,7 +51,7 @@ The ADS-B Logger has been developed for [readsb](https://github.com/wiedehopf/re
 - Distinctive aircraft (ICAO HEX code) and flights (airline flight numbers) are stored in a database, along with the first time of contact, aircraft registration (if available) and aicraft type (if available).
 - As default setting, a flight is considered unique for one hour from initial contact, allowing the detection of multiple flights by the same aircraft within one day.
 This is especially relevant for general aviation flights without specific flight number.
-The threshold of one hour can be configured in the [settings.ini file](settings.ini) as required.
+The threshold of one hour can be configured in the [settings.ini](settings.ini) file as required.
 - Information regarding currently seen flights and tracked recent flights are written to the service logs or screen in certain time intervals.
 
 ### Database
@@ -46,10 +78,62 @@ https://github.com/wiedehopf/readsb/blob/dev/README-json.md#aircraftjson-and---j
 
 ## Settings
 
-All settings, such as the database path and the timeout for treating a flight as unique, are stored in the [settings.ini file](settings.ini).
+All settings, such as the database path and the timeout for treating a flight as unique, are stored in the [settings.ini](settings.ini) file.
 The file can be adjusted by the user as necessary.
 
 ## Setup / Installation
+
+### Clone adsb-logger Repository
+
+1. Clone this repo to a local folder, e.g., `/var/adsb-logger/`
+2. Configure the [settings.ini](settings.ini) file as required, e.g.,
+    ```
+    cd /var/adsb-logger/
+    sudo nano settings.ini
+    ```
+
+### Variant 1: Run ADS-B Logger in Terminal
+
+It is suggested to try variant 1 before setting up the service ([variant 2](#variant-2-set-up-ads-b-logger-as-service)) to ensure that the logger is working as intended.
+
+1. To simply run the ADS-B Logger in your terminal, run the main file:
+    ```
+    python main_noservice.py
+    ```
+2. The ADS-B Logger can be stopped by pressing `CTRL + C`.
+
+### Variant 2: Set up ADS-B Logger as Service
+
+1. Create a new user for the service:
+    ```
+    sudo useradd -r -s /bin/false adsb_logger
+    ```
+
+2. Ensure the new user has write access to this folder:
+    ```
+    sudo chown adsb_logger:adsb_logger adsb-logger --recursive
+    ```
+
+3. Create new serviced file:
+    ```
+    sudo nano /etc/systemd/system/adsb-logger.service
+    ```
+
+4. Copy the content of the [adsb-logger.service](adsb-logger.service) file,and modify the service settings as required (e.g., paths).
+    The `python3 -u` is for the unbuffered Python mode to immediately show printouts in the journal log.
+    The environment `PYTHONUNBUFFERED=1` is redundant to the `-u` argument.
+
+5. Enable and start the new service:
+    ```
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now adsb-logger.service
+    sudo systemctl start --now adsb-logger.service
+    ```
+
+6. Access the log files via `journalctl`:
+    ```
+    sudo journalctl -u adsb-logger.service -f
+    ```
 
 ### Optional: Additional Information in aircraft.json
 
@@ -84,58 +168,11 @@ The folder paths may have to be modified as required.
     - https://github.com/wiedehopf/readsb#configuration
     - https://github.com/wiedehopf/tar1090#0800-destroy-sd-card
 
-### Clone adsb-logger Repository
+## Statistics
 
-1. Clone this repo to a local folder, e.g., `/var/adsb-logger/`
-2. Configure the [settings.ini file](settings.ini) as required, e.g.,
-    ```
-    cd /var/adsb-logger/
-    sudo nano settings.ini
-    ```
-
-### Variant 1: Run ADS-B Logger in Terminal
-
-It is suggested to try variant 1 before setting up the service ([variant 2](#variant-2-set-up-ads-b-logger-as-service)) to ensure that the logger is working as intended.
-
-1. To simply run the ADS-B Logger in your terminal, run the main file:
-    ```
-    python main_noservice.py
-    ```
-2. The ADS-B Logger can be stopped by pressing CTRL + C.
-
-### Variant 2: Set up ADS-B Logger as Service
-
-1. Create a new user for the service:
-    ```
-    sudo useradd -r -s /bin/false adsb_logger
-    ```
-
-2. Ensure the new user has write access to this folder:
-    ```
-    sudo chown adsb_logger:adsb_logger adsb-logger --recursive
-    ```
-
-3. Create new serviced file:
-    ```
-    sudo nano /etc/systemd/system/adsb-logger.service
-    ```
-
-4. Copy the content of the [adsb-logger.service](adsb-logger.service) file,and modify the service settings as required (e.g., paths).
-    The `python3 -u` is for the unbuffered Python mode to immediately show printouts in the journal log.
-    The environment `PYTHONUNBUFFERED=1` is redundant to the `-u` argument.
-
-5. Enable and start the new service:
-    ```
-    sudo systemctl daemon-reload
-    sudo systemctl enable --now adsb-logger.service
-    sudo systemctl start --now adsb-logger.service
-    ```
-
-## Log Files
-
-For the systemd service version ([variant 2](#variant-2-set-up-ads-b-logger-as-service)), access the log files via
+Print tables with statistics by calling the [show_statistics.py](show_statistics.py) file:
 ```
-sudo journalctl -u adsb-logger.service -f
+python3 show_statistics.py
 ```
 
 ## Credits
