@@ -1,14 +1,16 @@
 # ADS-B Logger
 
-This is a logger for ADS-B receivers that stores all received flights and other data.
+This is a logger for ADS-B receivers that stores all received flights and basic flight information.
+To keep it lightweight, data such as aircraft locations are not stored.
 
 ## Key Features
 
 - Logging of all flights detected by your ADS-B receiver, including flight number, registration, aircraft type, and timestamp of first contact
-- Logging of record values such as highest altitude, highest speed, longest distance from receiver
+- Logging of record values such as highest altitude, highest speed, and longest distance from receiver
+- Runs parallel to any installed feeders (e.g., Flightradar24, [adsb.fi](https://adsb.fi/)) and does not interfere
 - Storage in a [SQLite](https://www.sqlite.org/index.html) database that can be further processed, e.g., by [Grafana](https://grafana.com) for visualization
-- Can be run as [Linux systemd service](#variant-2-set-up-ads-b-logger-as-service)
-- Print [statistics](#statistics) such as total flights per day, most common airlines, or record values. Here is a shortened example:
+- Can be run as [Linux systemd service](#variant-2-set-up-ads-b-logger-as-service) or [simply as python call](#variant-1-run-ads-b-logger-as-simple-python-script)
+- Prints [statistics](#statistics) such as total flights per day, most common airlines, or record values. Here is a shortened example:
 
 ```
                           STATISTICS PER DAY
@@ -69,7 +71,7 @@ The threshold of one hour can be configured in the [settings.ini](settings.ini) 
 
 ### Further Information
 
-- readsb ADS-B decoder:
+- `readsb` ADS-B decoder:
 https://github.com/wiedehopf/readsb
 - Wiedehopf's very helpful wiki on ADS-B receivers:
 https://github.com/wiedehopf/adsb-wiki/wiki
@@ -85,14 +87,18 @@ The file can be adjusted by the user as necessary.
 
 ### Clone adsb-logger Repository
 
-1. Clone this repo to a local folder, e.g., `/var/adsb-logger/`
+1. Clone this repo to a local folder, e.g., `/var/adsb-logger/`:
+    ```
+    cd /var/
+    sudo git clone git@github.com:Griffsano/adsb-logger.git
+    ```
 2. Configure the [settings.ini](settings.ini) file as required, e.g.,
     ```
     cd /var/adsb-logger/
     sudo nano settings.ini
     ```
 
-### Variant 1: Run ADS-B Logger in Terminal
+### Variant 1: Run ADS-B Logger as Simple Python Script
 
 It is suggested to try variant 1 before setting up the service ([variant 2](#variant-2-set-up-ads-b-logger-as-service)) to ensure that the logger is working as intended.
 
@@ -157,7 +163,7 @@ The folder paths may have to be modified as required.
     --db-file=/usr/local/share/tar1090/aircraft.csv.gz
     ```
 
-    Optionally you can also add `--db-file-lt` for adding the long aircraft type name in addition to the short ICAO aircraft type.
+    Optionally, you can also add `--db-file-lt` for adding the long aircraft type name in addition to the short ICAO aircraft type.
 
 3. Restart `readsb`:
     ```
