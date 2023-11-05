@@ -34,15 +34,15 @@ if True:
     table = tabulate(result[1:], headers=result[0], tablefmt=table_format)
     print_table(table, "Statistics per day")
 
-# Table for most common flights, airlines, registrations, and aircraft types
+# Tables for most common flights, airlines, registrations, and aircraft types
 if False:
     for entry in ["flight", "airline", "registration", "type"]:
         result = database.evaluate_flights(entry, count)
         table = tabulate(result[1:], headers=result[0], tablefmt=table_format)
         print_table(table, "Most common entries")
 
-# Table for most common flights, airlines, registrations, and aircraft types
-# To reduce the printout length, always two tables are print next to each other
+# Tables for most common flights, airlines, registrations, and aircraft types
+# To reduce the printout length, the tables are print next to each other
 if True:
     entries = ["flight", "airline", "registration", "type"]
     tables = []
@@ -51,13 +51,13 @@ if True:
         tables.append(
             tabulate(result[1:], headers=result[0], tablefmt=table_format).splitlines()
         )
-        if e % 2 == 1:
-            # Always combine two tables
-            combined_table = tabulate(
-                [list(item) for item in zip(tables[e - 1], tables[e])],
-                tablefmt="plain",
-            )
-            print_table(combined_table, "Most common entries")
+    print_table(
+        tabulate(
+            [list(item) for item in zip(*tables)],
+            tablefmt="plain",
+        ),
+        "Most common entries",
+    )
 
 # Table for record values, e.g., altitude, speed, or distance
 if True:
